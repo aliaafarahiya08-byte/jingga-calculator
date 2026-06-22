@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jingga Sheet Yield Calculator</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial, sans-serif;
+    background:#f4f4f4;
+    padding:20px;
+}
+
+.container{
+    max-width:1200px;
+    margin:auto;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:20px;
+    color:#ff6600;
+}
+
+.wrapper{
+    display:grid;
+    grid-template-columns:350px 1fr;
+    gap:20px;
+}
+
+.card{
+    background:#fff;
+    border-radius:10px;
+    padding:20px;
+    box-shadow:0 2px 10px rgba(0,0,0,0.1);
+}
+
+label{
+    display:block;
+    margin-top:15px;
+    margin-bottom:5px;
+    font-weight:bold;
+}
+
+input{
+    width:100%;
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
+}
+
+button{
+    width:100%;
+    margin-top:20px;
+    padding:12px;
+    border:none;
+    background:#ff6600;
+    color:white;
+    font-size:16px;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#e55a00;
+}
+
+.result{
+    margin-top:20px;
+}
+
+.result div{
+    background:#fafafa;
+    padding:10px;
+    margin-bottom:10px;
+    border-left:5px solid #ff6600;
+}
+
+canvas{
+    width:100%;
+    height:auto;
+    border:1px solid #ddd;
+    background:#fff;
+}
+
+@media(max-width:768px){
+
+    .wrapper{
+        grid-template-columns:1fr;
+    }
+
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Jingga Sheet Yield Calculator</h1>
+
+    <div class="wrapper">
+
+        <div class="card">
+
+            <label>Parent Width (mm)</label>
+			<input type="number" id="pw" placeholder="Enter parent width">
+
+			<label>Parent Height (mm)</label>
+			<input type="number" id="ph" placeholder="Enter parent height">
+
+			<label>Child Width (mm)</label>
+			<input type="number" id="cw" placeholder="Enter child width">
+
+			<label>Child Height (mm)</label>
+			<input type="number" id="ch" placeholder="Enter child height">
+
+            <button onclick="calculate()">
+                Calculate
+            </button>
+
+            <div class="result" id="result"></div>
+
+        </div>
+
+        <div class="card">
+
+            <canvas id="canvas" width="900" height="600"></canvas>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+function calculate(){
+
+    const pw = parseFloat(document.getElementById('pw').value); // ambil data dari input
+    const ph = parseFloat(document.getElementById('ph').value);
+    const cw = parseFloat(document.getElementById('cw').value);
+    const ch = parseFloat(document.getElementById('ch').value);
+
+    if(!pw || !ph || !cw || !ch){ // validation 
+
+        alert("Sila isi semua nilai.");
+
+        return;
+    }
+
+    const noRotation =
+        Math.floor(pw / cw) *
+        Math.floor(ph / ch);
+
+    const rotateAll =
+        Math.floor(pw / ch) *
+        Math.floor(ph / cw);
+
+    let bestCount = 0;
+    let bestLayout = [];
+
+    for(let normalCols=0;
+        normalCols<=Math.floor(pw/cw);
+        normalCols++){
+
+        let layout=[];
+
+        let normalRows =
+            Math.floor(ph/ch);
+
+        let totalNormal =
+            normalCols * normalRows;
+
+        for(let c=0;c<normalCols;c++){
+
+            for(let r=0;r<normalRows;r++){
+
+                layout.push({
+                    x:c*cw,
+                    y:r*ch,
+                    w:cw,
+                    h:ch,
+                    rotated:false
+                });
+
+            }
+
+        }
+
+        let remainWidth = // cari ruang baki
+            pw - (normalCols*cw);
+
+        let rotCols =
+            Math.floor(remainWidth/ch);
+
+        let rotRows =
+            Math.floor(ph/cw);
+
+        let totalRotated =
+            rotCols * rotRows;
+
+        for(let c=0;c<rotCols;c++){
+
+            for(let r=0;r<rotRows;r++){
+
+                layout.push({
+                    x:(normalCols*cw)+(c*ch),
+                    y:r*cw,
+                    w:ch,
+                    h:cw,
+                    rotated:true
+                });
+
+            }
+
+        }
+
+        let total =
+            totalNormal + totalRotated;
+
+        if(total > bestCount){
+
+            bestCount = total;
+            bestLayout = layout;
+
+        }
+    }
+
+    const yieldPercent =  // yield Calculator
+        (
+            bestCount *
+            cw *
+            ch
+        ) /
+        (
+            pw *
+            ph
+        ) * 100;
+
+    document.getElementById("result").innerHTML =
+
+    `
+    <div><b>No Rotation:</b> ${noRotation} pcs</div>
+
+    <div><b>Rotate 90°:</b> ${rotateAll} pcs</div>
+
+    <div><b>Best Mixed Rotation:</b> ${bestCount} pcs</div>
+
+    <div><b>Yield:</b> ${yieldPercent.toFixed(2)}%</div>
+    `;
+
+    drawLayout(
+        pw,
+        ph,
+        bestLayout
+    );
+}
+
+function drawLayout(
+    parentW,
+    parentH,
+    layout
+){
+
+    const canvas =
+        document.getElementById("canvas");
+
+    const ctx =
+        canvas.getContext("2d");
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    const scale = Math.min(
+        (canvas.width-40)/parentW,
+        (canvas.height-40)/parentH
+    );
+
+    const startX =
+        (canvas.width-(parentW*scale))/2;
+
+    const startY =
+        (canvas.height-(parentH*scale))/2;
+
+    ctx.strokeStyle="#000";
+    ctx.lineWidth=2;
+
+    ctx.strokeRect(
+        startX,
+        startY,
+        parentW*scale,
+        parentH*scale
+    );
+
+    layout.forEach(item=>{
+
+        ctx.fillStyle =
+            item.rotated
+            ? "#4CAF50"
+            : "#ff6600";
+
+        ctx.fillRect(
+            startX+(item.x*scale),
+            startY+(item.y*scale),
+            item.w*scale,
+            item.h*scale
+        );
+
+        ctx.strokeStyle="#fff";
+
+        ctx.strokeRect(
+            startX+(item.x*scale),
+            startY+(item.y*scale),
+            item.w*scale,
+            item.h*scale
+        );
+
+    });
+
+}
+
+</script>
+
+</body>
+</html>
